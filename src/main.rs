@@ -9,7 +9,7 @@ use crate::persistence::{
     archive_dir_display, artifacts_root_display, current_checkpoint_dir_display,
     current_policy_path_display, list_checkpoints, load_current, save_current, CheckpointInfo,
 };
-use crate::swarm::{run_swarm, PopulationCell, SwarmSnapshot, SwarmStats};
+use crate::swarm::{run_swarm, run_swarm_web, PopulationCell, SwarmSnapshot, SwarmStats};
 use dioxus::prelude::*;
 use futures_timer::Delay;
 use rand::rngs::SmallRng;
@@ -87,6 +87,9 @@ fn App() -> Element {
         }
 
         swarm_started.set(true);
+        if cfg!(target_arch = "wasm32") {
+            return;
+        }
         let brain = shared_brain_for_swarm.clone();
         let stats = shared_stats_for_swarm.clone();
         let snapshot = shared_snapshot_for_swarm.clone();
@@ -95,6 +98,28 @@ fn App() -> Element {
         std::thread::spawn(move || {
             run_swarm(brain, stats, snapshot, reset);
         });
+    });
+
+    let swarm_brain_for_web = shared_brain.clone();
+    let swarm_stats_for_web = shared_stats.clone();
+    let swarm_snapshot_for_web = shared_snapshot.clone();
+    let swarm_reset_for_web = shared_reset.clone();
+    use_future(move || {
+        let swarm_brain_for_web = swarm_brain_for_web.clone();
+        let swarm_stats_for_web = swarm_stats_for_web.clone();
+        let swarm_snapshot_for_web = swarm_snapshot_for_web.clone();
+        let swarm_reset_for_web = swarm_reset_for_web.clone();
+        async move {
+            if cfg!(target_arch = "wasm32") {
+                run_swarm_web(
+                    swarm_brain_for_web,
+                    swarm_stats_for_web,
+                    swarm_snapshot_for_web,
+                    swarm_reset_for_web,
+                )
+                .await;
+            }
+        }
     });
 
     let brain_for_game = brain_store();

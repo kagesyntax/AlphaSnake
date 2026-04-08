@@ -2,8 +2,11 @@ use crate::ai::PolicyBrain;
 use crate::swarm::SwarmStats;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
+#[cfg(not(target_arch = "wasm32"))]
 use std::fs::{self, File};
+#[cfg(not(target_arch = "wasm32"))]
 use std::io::{Read, Write};
+#[cfg(not(target_arch = "wasm32"))]
 use std::path::{Path, PathBuf};
 
 const ARTIFACTS_ROOT: &str = "artifacts/checkpoints";
@@ -58,14 +61,32 @@ pub struct SaveReport {
     pub has_brain: bool,
 }
 
+#[cfg(target_arch = "wasm32")]
+pub fn artifacts_root_display() -> String {
+    "browser-memory://artifacts/checkpoints".to_string()
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 pub fn artifacts_root_display() -> String {
     PathBuf::from(ARTIFACTS_ROOT).display().to_string()
 }
 
+#[cfg(target_arch = "wasm32")]
+pub fn current_checkpoint_dir_display() -> String {
+    "browser-memory://artifacts/checkpoints/current".to_string()
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 pub fn current_checkpoint_dir_display() -> String {
     PathBuf::from(CURRENT_DIR).display().to_string()
 }
 
+#[cfg(target_arch = "wasm32")]
+pub fn current_policy_path_display() -> String {
+    "browser-memory://artifacts/checkpoints/current/policy.bin".to_string()
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 pub fn current_policy_path_display() -> String {
     PathBuf::from(CURRENT_DIR)
         .join(POLICY_FILE)
@@ -73,10 +94,29 @@ pub fn current_policy_path_display() -> String {
         .to_string()
 }
 
+#[cfg(target_arch = "wasm32")]
+pub fn archive_dir_display() -> String {
+    "browser-memory://artifacts/checkpoints/archive".to_string()
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 pub fn archive_dir_display() -> String {
     PathBuf::from(ARCHIVE_DIR).display().to_string()
 }
 
+#[cfg(target_arch = "wasm32")]
+pub fn save_current(
+    brain: &Option<PolicyBrain>,
+    _stats: &SwarmStats,
+) -> Result<SaveReport, Box<dyn std::error::Error>> {
+    Ok(SaveReport {
+        current_dir: current_checkpoint_dir_display(),
+        policy_path: current_policy_path_display(),
+        has_brain: brain.is_some(),
+    })
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 pub fn save_current(
     brain: &Option<PolicyBrain>,
     stats: &SwarmStats,
@@ -91,6 +131,15 @@ pub fn save_current(
     })
 }
 
+#[cfg(target_arch = "wasm32")]
+pub fn save_generation_checkpoint(
+    _brain: &PolicyBrain,
+    _stats: &SwarmStats,
+) -> Result<Option<CheckpointInfo>, Box<dyn std::error::Error>> {
+    Ok(None)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 pub fn save_generation_checkpoint(
     brain: &PolicyBrain,
     stats: &SwarmStats,
@@ -114,6 +163,15 @@ pub fn save_generation_checkpoint(
     Ok(read_checkpoint(&checkpoint_dir).ok())
 }
 
+#[cfg(target_arch = "wasm32")]
+pub fn load_current() -> PersistentData {
+    PersistentData {
+        brain: None,
+        stats: SwarmStats::default(),
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 pub fn load_current() -> PersistentData {
     ensure_dirs().ok();
 
@@ -124,6 +182,12 @@ pub fn load_current() -> PersistentData {
     PersistentData { brain, stats }
 }
 
+#[cfg(target_arch = "wasm32")]
+pub fn list_checkpoints(_limit: usize) -> Vec<CheckpointInfo> {
+    Vec::new()
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 pub fn list_checkpoints(limit: usize) -> Vec<CheckpointInfo> {
     let Ok(entries) = fs::read_dir(ARCHIVE_DIR) else {
         return Vec::new();
@@ -146,6 +210,7 @@ pub fn list_checkpoints(limit: usize) -> Vec<CheckpointInfo> {
     checkpoints
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn save_bundle(
     dir: &Path,
     brain: &Option<PolicyBrain>,
@@ -189,6 +254,7 @@ fn save_bundle(
     Ok(())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn read_checkpoint(path: &Path) -> Result<CheckpointInfo, Box<dyn std::error::Error>> {
     let manifest: CheckpointManifest = read_json(&path.join(MANIFEST_FILE))?;
     Ok(CheckpointInfo {
@@ -205,12 +271,14 @@ fn read_checkpoint(path: &Path) -> Result<CheckpointInfo, Box<dyn std::error::Er
     })
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn ensure_dirs() -> Result<(), Box<dyn std::error::Error>> {
     fs::create_dir_all(CURRENT_DIR)?;
     fs::create_dir_all(ARCHIVE_DIR)?;
     Ok(())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn write_bin<T: Serialize>(path: &Path, value: &T) -> Result<(), Box<dyn std::error::Error>> {
     let bytes = bincode::serialize(value)?;
     let mut file = File::create(path)?;
@@ -218,6 +286,7 @@ fn write_bin<T: Serialize>(path: &Path, value: &T) -> Result<(), Box<dyn std::er
     Ok(())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn read_bin<T: for<'de> Deserialize<'de>>(path: &Path) -> Option<T> {
     let mut file = File::open(path).ok()?;
     let mut bytes = Vec::new();
@@ -225,6 +294,7 @@ fn read_bin<T: for<'de> Deserialize<'de>>(path: &Path) -> Option<T> {
     bincode::deserialize(&bytes).ok()
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<T, Box<dyn std::error::Error>> {
     let mut file = File::open(path)?;
     let mut bytes = Vec::new();
