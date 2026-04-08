@@ -25,6 +25,8 @@ pub struct CheckpointManifest {
     pub generation: u32,
     pub population_size: u32,
     pub alive_agents: u32,
+    #[serde(default = "default_arena_stage")]
+    pub arena_stage: String,
     pub champion_score: u32,
     pub champion_foods: u32,
     pub champion_fitness: f32,
@@ -41,6 +43,7 @@ pub struct CheckpointManifest {
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckpointInfo {
     pub generation: u32,
+    pub arena_stage: String,
     pub champion_score: u32,
     pub champion_foods: u32,
     pub champion_fitness: f32,
@@ -235,6 +238,7 @@ fn save_bundle(
         generation: stats.generation,
         population_size: stats.population_size,
         alive_agents: stats.alive_agents,
+        arena_stage: stats.arena_stage.clone(),
         champion_score: stats.champion_score,
         champion_foods: stats.champion_foods,
         champion_fitness: stats.champion_fitness,
@@ -271,6 +275,7 @@ fn read_checkpoint(path: &Path) -> Result<CheckpointInfo, Box<dyn std::error::Er
     let manifest: CheckpointManifest = read_json(&path.join(MANIFEST_FILE))?;
     Ok(CheckpointInfo {
         generation: manifest.generation,
+        arena_stage: manifest.arena_stage,
         champion_score: manifest.champion_score,
         champion_foods: manifest.champion_foods,
         champion_fitness: manifest.champion_fitness,
@@ -281,6 +286,10 @@ fn read_checkpoint(path: &Path) -> Result<CheckpointInfo, Box<dyn std::error::Er
         save_kind: manifest.save_kind,
         directory: path.display().to_string(),
     })
+}
+
+fn default_arena_stage() -> String {
+    "Standard Arena".to_string()
 }
 
 fn ensure_dirs() -> Result<(), Box<dyn std::error::Error>> {

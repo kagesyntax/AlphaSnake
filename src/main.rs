@@ -418,6 +418,7 @@ fn App() -> Element {
                 div {
                     class: "status-strip",
                     StatusChip { label: "Generation".to_string(), value: current_stats.generation.to_string() }
+                    StatusChip { label: "Arena".to_string(), value: current_stats.arena_stage.clone() }
                     StatusChip { label: "Champion Score".to_string(), value: current_stats.champion_score.to_string() }
                     StatusChip { label: "Population".to_string(), value: current_stats.population_size.to_string() }
                     StatusChip { label: "Policy".to_string(), value: if has_brain { "Loaded".to_string() } else { "Seeding".to_string() } }
@@ -917,6 +918,7 @@ fn CheckpointMetaCard(title: String, checkpoint: Option<CheckpointInfo>) -> Elem
             p { class: "path-item__label", "{title}" }
             if let Some(checkpoint) = checkpoint {
                 p { class: "checkpoint-meta__value", "Gen {checkpoint.generation} / Score {checkpoint.champion_score}" }
+                p { class: "checkpoint-meta__detail", "{checkpoint.arena_stage}" }
                 p { class: "checkpoint-meta__detail", {format!("Fitness {:.2}", checkpoint.champion_fitness)} }
                 p { class: "checkpoint-meta__detail", "{checkpoint.saved_at}" }
                 p { class: "checkpoint-meta__path", "{absolute_path(&checkpoint.directory)}" }
@@ -975,6 +977,7 @@ fn ArchiveCheckpointEntry(
                 span { "Gen {checkpoint.generation}" }
                 span { "Score {checkpoint.champion_score}" }
             }
+            p { class: "archive-entry__line", "{checkpoint.arena_stage}" }
             p { class: "archive-entry__line", {format!("Fitness {:.2}", checkpoint.champion_fitness)} }
             p { class: "archive-entry__line", "{checkpoint.saved_at}" }
             p { class: "archive-entry__path", "{absolute_path(&checkpoint.directory)}" }
@@ -1056,8 +1059,15 @@ fn GameView(
                             class: "arena-panel__meta",
                             div {
                                 h3 { class: "arena-panel__title", "Current Best Policy" }
-                                p { class: "arena-panel__subtitle",
-                                    if has_brain { "Background swarm champion" } else { "Trainer seeding initial policy" }
+                                p {
+                                    class: "arena-panel__subtitle",
+                                    {
+                                        if has_brain {
+                                            format!("Background swarm champion · {}", stats.arena_stage)
+                                        } else {
+                                            "Trainer seeding initial policy".to_string()
+                                        }
+                                    }
                                 }
                             }
                             div {
@@ -1208,6 +1218,11 @@ fn LabView(
                         label: "Alive Agents".to_string(),
                         value: stats.alive_agents.to_string(),
                         detail: "Agents still alive in latest snapshot".to_string(),
+                    }
+                    MetricCard {
+                        label: "Curriculum Stage".to_string(),
+                        value: stats.arena_stage.clone(),
+                        detail: "Current training arena".to_string(),
                     }
                     MetricCard {
                         label: "Best Score".to_string(),
@@ -1498,6 +1513,13 @@ fn Board(
         div {
             class: "board-canvas {variant}",
             style: "width: {board_size}px; height: {board_size}px;",
+
+            for obstacle in state.arena.obstacles.iter() {
+                div {
+                    class: "board-obstacle",
+                    style: "width: {cell_size}px; height: {cell_size}px; left: {obstacle.x * cell_size}px; top: {obstacle.y * cell_size}px;",
+                }
+            }
 
             div {
                 class: "board-food",
