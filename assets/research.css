@@ -472,6 +472,10 @@ body {
     word-break: break-word;
 }
 
+.replay-controls {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .alert-feed {
     display: grid;
     gap: 8px;
