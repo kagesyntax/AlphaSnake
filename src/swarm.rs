@@ -2,7 +2,7 @@ use crate::ai::PolicyBrain;
 use crate::game::{GameState, StepOutcome};
 use crate::persistence::save_generation_checkpoint;
 use rand::rngs::SmallRng;
-use rand::{Rng, SeedableRng};
+use rand::SeedableRng;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
@@ -14,7 +14,6 @@ pub const SAMPLE_BOARD_COUNT: usize = 144;
 pub const POPULATION_MATRIX_COLUMNS: usize = 32;
 pub const HEATMAP_CELLS: usize = (GRID_SIZE as usize) * (GRID_SIZE as usize);
 
-const ELITE_COUNT: usize = 96;
 const HARD_ELITES: usize = 16;
 const MAX_TICKS_PER_GENERATION: u32 = 260;
 const SNAPSHOT_INTERVAL: u32 = 4;
@@ -295,7 +294,7 @@ pub fn run_swarm(
         write_shared_stats(&shared_stats, stats.clone());
         write_shared_snapshot(&shared_snapshot, final_snapshot);
 
-        population = breed_next_generation(&population, mutation_scale, &mut rng);
+        population = reseed_population_from_champion(&champion.brain, mutation_scale, &mut rng);
     }
 }
 
@@ -315,44 +314,15 @@ fn seed_population(seed: Option<&PolicyBrain>, sigma: f32, rng: &mut SmallRng) -
         .collect()
 }
 
-fn breed_next_generation(
-    population: &[Candidate],
+fn reseed_population_from_champion(
+    champion: &PolicyBrain,
     sigma: f32,
     rng: &mut SmallRng,
 ) -> Vec<Candidate> {
-    let mut next = Vec::with_capacity(POPULATION_SIZE);
-
-    for candidate in population.iter().take(HARD_ELITES) {
-        next.push(Candidate::new(candidate.id, candidate.brain.clone(), rng));
-    }
-
-    while next.len() < POPULATION_SIZE {
-        let chance = rng.gen_range(0.0..1.0);
-        let child = if chance < 0.55 {
-            let left = select_parent(population, rng);
-            let right = select_parent(population, rng);
-            PolicyBrain::crossover_mutate(&left.brain, &right.brain, rng, sigma)
-        } else if chance < 0.88 {
-            let parent = select_parent(population, rng);
-            PolicyBrain::mutated_from(&parent.brain, rng, sigma)
-        } else if chance < 0.97 {
-            let champion = &population[0].brain;
-            PolicyBrain::mutated_from(champion, rng, sigma * 1.8)
-        } else {
-            PolicyBrain::random(rng)
-        };
-
-        next.push(Candidate::new(next.len(), child, rng));
-    }
-
-    next
-}
-
-fn select_parent<'a>(population: &'a [Candidate], rng: &mut SmallRng) -> &'a Candidate {
-    let elite_span = ELITE_COUNT.min(population.len());
-    let a = rng.gen_range(0..elite_span);
-    let b = rng.gen_range(0..elite_span);
-    &population[a.min(b)]
+    // The next generation is rebuilt around the strongest live policy instead
+    // of mixing survivors from the old pool. This keeps the whole lab focused
+    // on the latest best model and clears weaker branches immediately.
+    seed_population(Some(champion), sigma, rng)
 }
 
 fn shaped_reward(state: &GameState, outcome: StepOutcome) -> f32 {

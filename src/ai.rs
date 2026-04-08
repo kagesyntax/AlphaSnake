@@ -62,21 +62,6 @@ impl PolicyBrain {
         child
     }
 
-    pub fn crossover_mutate(left: &Self, right: &Self, rng: &mut SmallRng, sigma: f32) -> Self {
-        let mut child = Self {
-            hidden_weights: mix_slice(&left.hidden_weights, &right.hidden_weights, rng),
-            hidden_bias: mix_slice(&left.hidden_bias, &right.hidden_bias, rng),
-            output_weights: mix_slice(&left.output_weights, &right.output_weights, rng),
-            output_bias: mix_slice(&left.output_bias, &right.output_bias, rng),
-        };
-
-        mutate_slice(&mut child.hidden_weights, rng, sigma);
-        mutate_slice(&mut child.hidden_bias, rng, sigma * 0.7);
-        mutate_slice(&mut child.output_weights, rng, sigma);
-        mutate_slice(&mut child.output_bias, rng, sigma * 0.7);
-        child
-    }
-
     pub fn decide(&self, state: &GameState) -> Direction {
         let observation = observe(state);
         let logits = self.forward(&observation);
@@ -264,13 +249,6 @@ fn index_to_direction(index: usize) -> Direction {
         2 => Direction::Left,
         _ => Direction::Right,
     }
-}
-
-fn mix_slice(left: &[f32], right: &[f32], rng: &mut SmallRng) -> Vec<f32> {
-    left.iter()
-        .zip(right.iter())
-        .map(|(lhs, rhs)| if rng.gen_bool(0.5) { *lhs } else { *rhs })
-        .collect()
 }
 
 fn mutate_slice(values: &mut [f32], rng: &mut SmallRng, sigma: f32) {
