@@ -1,0 +1,16 @@
+{
+  "generation": 79,
+  "population_size": 1024,
+  "alive_agents": 0,
+  "champion_score": 200,
+  "champion_foods": 20,
+  "champion_fitness": 3145.64,
+  "mean_fitness": 1535.1077,
+  "median_fitness": 1669.96,
+  "mutation_scale": 0.35,
+  "total_agent_steps": 20788032,
+  "total_foods": 688845,
+  "parameter_count": 940,
+  "saved_at": "2026-04-08 15:12:14 UTC",
+  "save_kind": "generation-checkpoint"
+}

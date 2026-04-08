@@ -1,0 +1,11 @@
+{
+  "generation": 1332,
+  "games_played": 15822,
+  "best_score": 500,
+  "samples_buffered": 0,
+  "checkpoints_saved": 1331,
+  "last_training_score": 400,
+  "has_model": true,
+  "save_kind": "checkpoint",
+  "saved_at": "2026-04-08 13:25:24 UTC"
+}

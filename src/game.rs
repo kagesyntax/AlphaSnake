@@ -1,0 +1,186 @@
+use rand::rngs::SmallRng;
+use rand::Rng;
+use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Direction {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+
+impl Direction {
+    pub fn opposite(&self) -> Self {
+        match self {
+            Direction::Up => Direction::Down,
+            Direction::Down => Direction::Up,
+            Direction::Left => Direction::Right,
+            Direction::Right => Direction::Left,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Pos {
+    pub x: i32,
+    pub y: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct GameState {
+    pub snake: VecDeque<Pos>,
+    pub food: Pos,
+    pub direction: Direction,
+    pub grid_size: i32,
+    pub is_dead: bool,
+    pub score: u32,
+    pub foods_eaten: u32,
+    pub steps_alive: u32,
+    pub steps_since_food: u32,
+}
+
+impl GameState {
+    pub fn new(grid_size: i32, rng: &mut SmallRng) -> Self {
+        let mut snake = VecDeque::new();
+        let mid = grid_size / 2;
+        snake.push_back(Pos { x: mid, y: mid });
+        snake.push_back(Pos { x: mid, y: mid + 1 });
+
+        let mut state = Self {
+            snake,
+            food: Pos { x: 0, y: 0 },
+            direction: Direction::Up,
+            grid_size,
+            is_dead: false,
+            score: 0,
+            foods_eaten: 0,
+            steps_alive: 0,
+            steps_since_food: 0,
+        };
+        state.spawn_food(rng);
+        state
+    }
+
+    pub fn head(&self) -> Pos {
+        *self.snake.front().expect("snake must have a head")
+    }
+
+    pub fn starvation_limit(&self) -> u32 {
+        (self.grid_size * self.grid_size * 2) as u32
+    }
+
+    pub fn would_collide(&self, next_head: Pos) -> bool {
+        if next_head.x < 0
+            || next_head.x >= self.grid_size
+            || next_head.y < 0
+            || next_head.y >= self.grid_size
+        {
+            return true;
+        }
+
+        let tail = self.snake.back().copied();
+        self.snake.iter().enumerate().any(|(index, segment)| {
+            if *segment != next_head {
+                return false;
+            }
+            let moving_into_tail = Some(next_head) == tail && index == self.snake.len() - 1;
+            !moving_into_tail
+        })
+    }
+
+    pub fn distance_to_food(&self) -> i32 {
+        let head = self.head();
+        (head.x - self.food.x).abs() + (head.y - self.food.y).abs()
+    }
+
+    pub fn step(&mut self, next_dir: Direction, rng: &mut SmallRng) -> StepOutcome {
+        if self.is_dead {
+            return StepOutcome::Dead;
+        }
+
+        let previous_distance = self.distance_to_food();
+        if next_dir != self.direction.opposite() {
+            self.direction = next_dir;
+        }
+
+        let head = self.head();
+        let new_head = match self.direction {
+            Direction::Up => Pos {
+                x: head.x,
+                y: head.y - 1,
+            },
+            Direction::Down => Pos {
+                x: head.x,
+                y: head.y + 1,
+            },
+            Direction::Left => Pos {
+                x: head.x - 1,
+                y: head.y,
+            },
+            Direction::Right => Pos {
+                x: head.x + 1,
+                y: head.y,
+            },
+        };
+
+        self.steps_alive += 1;
+        self.steps_since_food += 1;
+
+        if self.would_collide(new_head) {
+            self.is_dead = true;
+            return StepOutcome::Dead;
+        }
+
+        self.snake.push_front(new_head);
+        let ate_food = new_head == self.food;
+
+        if ate_food {
+            self.score += 10;
+            self.foods_eaten += 1;
+            self.steps_since_food = 0;
+            self.spawn_food(rng);
+        } else {
+            self.snake.pop_back();
+        }
+
+        if self.steps_since_food > self.starvation_limit() {
+            self.is_dead = true;
+            return StepOutcome::Dead;
+        }
+
+        let distance_delta = previous_distance - self.distance_to_food();
+        if ate_food {
+            StepOutcome::AteFood
+        } else if distance_delta > 0 {
+            StepOutcome::Closer(distance_delta)
+        } else if distance_delta < 0 {
+            StepOutcome::Further(distance_delta.abs())
+        } else {
+            StepOutcome::Neutral
+        }
+    }
+
+    pub fn spawn_food(&mut self, rng: &mut SmallRng) {
+        loop {
+            let new_food = Pos {
+                x: rng.gen_range(0..self.grid_size),
+                y: rng.gen_range(0..self.grid_size),
+            };
+            if !self.snake.contains(&new_food) {
+                self.food = new_food;
+                break;
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StepOutcome {
+    AteFood,
+    Closer(i32),
+    Further(i32),
+    Neutral,
+    Dead,
+}

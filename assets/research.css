@@ -1,0 +1,437 @@
+:root {
+    --bg-0: #07090a;
+    --bg-1: #0d1012;
+    --bg-2: #13181b;
+    --panel: rgba(15, 19, 21, 0.94);
+    --panel-strong: rgba(9, 12, 14, 0.98);
+    --line: #273036;
+    --line-strong: #4b5b64;
+    --text: #d7ddd8;
+    --muted: #8b9592;
+    --accent: #d7c57a;
+    --accent-soft: #8d8455;
+    --good: #7eab8d;
+    --warn: #c28b67;
+    --dead: #1b2024;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    min-height: 100%;
+    color: var(--text);
+    font-family: "IBM Plex Mono", "JetBrains Mono", Consolas, monospace;
+    background:
+        radial-gradient(circle at top left, rgba(215, 197, 122, 0.08), transparent 22%),
+        linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 45%, #060708 100%);
+    background-size: auto, 26px 26px, 26px 26px, auto;
+}
+
+body {
+    min-height: 100vh;
+}
+
+.console-shell {
+    min-height: 100vh;
+    display: grid;
+    gap: 14px;
+    padding: 14px;
+    outline: none;
+}
+
+.panel {
+    border: 1px solid var(--line);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent 30%),
+        linear-gradient(180deg, var(--panel) 0%, var(--panel-strong) 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.app-header,
+.app-footer,
+.game-main,
+.game-sidebar,
+.lab-sidebar,
+.lab-main,
+.archive-panel {
+    padding: 16px;
+}
+
+.app-header__top {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: flex-start;
+}
+
+.app-header__title {
+    margin: 0 0 8px;
+    font-size: clamp(30px, 4vw, 54px);
+    line-height: 0.92;
+    letter-spacing: -0.06em;
+    text-transform: uppercase;
+}
+
+.app-header__eyebrow,
+.section-heading p,
+.telemetry-card__label,
+.telemetry-card__detail,
+.path-item__label,
+.sample-board__meta,
+.archive-entry__top,
+.archive-entry__line,
+.footer-block__label,
+.subpanel__copy,
+.arena-panel__subtitle,
+.status-chip__label {
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.app-header__copy,
+.footer-block__value,
+.path-item__value,
+.archive-entry__path,
+.subpanel__copy,
+.section-heading p {
+    line-height: 1.65;
+}
+
+.view-nav {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.view-button,
+.control-button {
+    border: 1px solid var(--line-strong);
+    background: linear-gradient(180deg, #21292e 0%, #111417 100%);
+    color: var(--text);
+    font: inherit;
+    padding: 12px 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    cursor: pointer;
+    transition:
+        background 120ms ease,
+        transform 120ms ease,
+        border-color 120ms ease,
+        color 120ms ease;
+}
+
+.view-button:hover,
+.control-button:hover {
+    border-color: var(--accent);
+    background: linear-gradient(180deg, #2b353b 0%, #171c1f 100%);
+}
+
+.view-button:focus-visible,
+.control-button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.view-button:active,
+.control-button:active {
+    transform: translate(1px, 1px);
+}
+
+.view-button--active {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.control-button--warn {
+    border-color: #7d5644;
+    color: #f0d8c8;
+}
+
+.control-button--warn:hover {
+    border-color: var(--warn);
+}
+
+.status-strip {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.status-chip,
+.telemetry-card,
+.path-item,
+.subpanel,
+.archive-entry,
+.champion-card,
+.empty-state,
+.footer-block,
+.sample-board {
+    border: 1px solid var(--line);
+    background: rgba(10, 13, 15, 0.95);
+    padding: 10px;
+}
+
+.status-chip__value {
+    margin-top: 8px;
+    font-size: 18px;
+    color: var(--accent);
+}
+
+.game-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 14px;
+}
+
+.lab-layout {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr) 360px;
+    gap: 14px;
+    align-items: start;
+}
+
+.game-sidebar,
+.lab-sidebar,
+.lab-main,
+.button-stack,
+.path-list,
+.subpanel,
+.footer-grid,
+.footer-block {
+    display: grid;
+    gap: 10px;
+}
+
+.versus-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.arena-panel {
+    display: grid;
+    gap: 12px;
+    border: 1px solid var(--line);
+    padding: 12px;
+    background: rgba(7, 10, 12, 0.92);
+}
+
+.arena-panel__meta,
+.sample-board__meta,
+.champion-card__meta,
+.archive-entry__top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.arena-panel__title,
+.section-heading h2,
+.subpanel h3 {
+    margin: 0 0 6px;
+    font-size: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.arena-panel__stats {
+    display: grid;
+    gap: 4px;
+    text-align: right;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+}
+
+.section-heading {
+    margin-bottom: 12px;
+}
+
+.section-heading--spaced {
+    margin-top: 18px;
+}
+
+.metric-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.metric-row--stacked {
+    grid-template-columns: 1fr;
+}
+
+.telemetry-card {
+    min-height: 104px;
+}
+
+.telemetry-card__value {
+    margin: 10px 0 12px;
+    font-size: 22px;
+    line-height: 1;
+    color: var(--accent);
+    word-break: break-word;
+}
+
+.population-matrix {
+    display: grid;
+    gap: 3px;
+}
+
+.population-cell {
+    aspect-ratio: 1;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    background: var(--dead);
+}
+
+.population-cell--live {
+    background: #5e8168;
+}
+
+.population-cell--warm {
+    background: #958455;
+}
+
+.population-cell--hot {
+    background: #d8cb9a;
+}
+
+.population-cell--dead {
+    background: #20252a;
+}
+
+.sample-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.board-canvas {
+    position: relative;
+    border: 1px solid var(--line-strong);
+    background:
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        #060809;
+    overflow: hidden;
+}
+
+.board-canvas--player {
+    background-size: 20px 20px, 20px 20px, auto;
+}
+
+.board-canvas--ai {
+    background-size: 18px 18px, 18px 18px, auto;
+}
+
+.board-canvas--champion {
+    background-size: 12px 12px, 12px 12px, auto;
+}
+
+.board-canvas--sample {
+    background-size: 6px 6px, 6px 6px, auto;
+}
+
+.board-food,
+.board-segment,
+.board-overlay {
+    position: absolute;
+}
+
+.board-segment {
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.22);
+}
+
+.board-overlay {
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(19, 10, 10, 0.78);
+    color: var(--text);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 12px;
+}
+
+.heatmap-grid {
+    display: grid;
+    grid-template-columns: repeat(20, minmax(0, 1fr));
+    gap: 2px;
+}
+
+.heatmap-cell {
+    aspect-ratio: 1;
+    border: 1px solid rgba(0, 0, 0, 0.14);
+}
+
+.archive-grid {
+    display: grid;
+    gap: 8px;
+}
+
+.archive-entry__path {
+    color: var(--muted);
+    overflow-wrap: anywhere;
+}
+
+.footer-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.empty-state {
+    color: var(--muted);
+}
+
+@media (max-width: 1400px) {
+    .lab-layout {
+        grid-template-columns: 260px minmax(0, 1fr);
+    }
+
+    .lab-layout > .lab-sidebar:last-child {
+        grid-column: 1 / -1;
+    }
+
+    .sample-grid {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 1100px) {
+    .app-header__top {
+        flex-direction: column;
+    }
+
+    .status-strip,
+    .game-layout,
+    .lab-layout,
+    .versus-grid,
+    .footer-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .sample-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 760px) {
+    .console-shell {
+        padding: 10px;
+    }
+
+    .sample-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
