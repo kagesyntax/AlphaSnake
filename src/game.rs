@@ -28,6 +28,94 @@ pub struct Pos {
     pub y: i32,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ArenaKind {
+    Standard,
+    SparseFood,
+    ObstacleField,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ArenaConfig {
+    pub kind: ArenaKind,
+    pub grid_size: i32,
+    pub min_food_distance: i32,
+    pub obstacles: Vec<Pos>,
+}
+
+impl ArenaConfig {
+    pub fn standard(grid_size: i32) -> Self {
+        Self {
+            kind: ArenaKind::Standard,
+            grid_size,
+            min_food_distance: 0,
+            obstacles: Vec::new(),
+        }
+    }
+
+    pub fn sparse_food(grid_size: i32) -> Self {
+        Self {
+            kind: ArenaKind::SparseFood,
+            grid_size,
+            min_food_distance: (grid_size / 2).max(6),
+            obstacles: Vec::new(),
+        }
+    }
+
+    pub fn obstacle_field(grid_size: i32) -> Self {
+        let center = grid_size / 2;
+        let obstacles = vec![
+            Pos {
+                x: center - 3,
+                y: center - 2,
+            },
+            Pos {
+                x: center - 3,
+                y: center - 1,
+            },
+            Pos {
+                x: center - 3,
+                y: center,
+            },
+            Pos {
+                x: center + 2,
+                y: center,
+            },
+            Pos {
+                x: center + 2,
+                y: center + 1,
+            },
+            Pos {
+                x: center + 2,
+                y: center + 2,
+            },
+        ];
+
+        Self {
+            kind: ArenaKind::ObstacleField,
+            grid_size,
+            min_food_distance: 0,
+            obstacles,
+        }
+    }
+
+    pub fn curriculum_stage(stage: usize, grid_size: i32) -> Self {
+        match stage {
+            1 => Self::sparse_food(grid_size),
+            2 => Self::obstacle_field(grid_size),
+            _ => Self::standard(grid_size),
+        }
+    }
+
+    pub fn stage_label(&self) -> &'static str {
+        match self.kind {
+            ArenaKind::Standard => "Standard Arena",
+            ArenaKind::SparseFood => "Sparse Food Arena",
+            ArenaKind::ObstacleField => "Obstacle Field",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct GameState {
     pub snake: VecDeque<Pos>,
@@ -39,11 +127,17 @@ pub struct GameState {
     pub foods_eaten: u32,
     pub steps_alive: u32,
     pub steps_since_food: u32,
+    pub arena: ArenaConfig,
 }
 
 impl GameState {
     pub fn new(grid_size: i32, rng: &mut SmallRng) -> Self {
+        Self::new_with_arena(ArenaConfig::standard(grid_size), rng)
+    }
+
+    pub fn new_with_arena(arena: ArenaConfig, rng: &mut SmallRng) -> Self {
         let mut snake = VecDeque::new();
+        let grid_size = arena.grid_size;
         let mid = grid_size / 2;
         snake.push_back(Pos { x: mid, y: mid });
         snake.push_back(Pos { x: mid, y: mid + 1 });
@@ -58,6 +152,7 @@ impl GameState {
             foods_eaten: 0,
             steps_alive: 0,
             steps_since_food: 0,
+            arena,
         };
         state.spawn_food(rng);
         state
@@ -77,6 +172,10 @@ impl GameState {
             || next_head.y < 0
             || next_head.y >= self.grid_size
         {
+            return true;
+        }
+
+        if self.arena.obstacles.contains(&next_head) {
             return true;
         }
 
@@ -163,14 +262,32 @@ impl GameState {
     }
 
     pub fn spawn_food(&mut self, rng: &mut SmallRng) {
-        loop {
+        let head = self.head();
+        for _ in 0..256 {
             let new_food = Pos {
                 x: rng.gen_range(0..self.grid_size),
                 y: rng.gen_range(0..self.grid_size),
             };
-            if !self.snake.contains(&new_food) {
+            let distance = (head.x - new_food.x).abs() + (head.y - new_food.y).abs();
+            if !self.snake.contains(&new_food)
+                && !self.arena.obstacles.contains(&new_food)
+                && distance >= self.arena.min_food_distance
+            {
                 self.food = new_food;
                 break;
+            }
+        }
+
+        if self.snake.contains(&self.food) || self.arena.obstacles.contains(&self.food) {
+            loop {
+                let new_food = Pos {
+                    x: rng.gen_range(0..self.grid_size),
+                    y: rng.gen_range(0..self.grid_size),
+                };
+                if !self.snake.contains(&new_food) && !self.arena.obstacles.contains(&new_food) {
+                    self.food = new_food;
+                    break;
+                }
             }
         }
     }
