@@ -11,7 +11,8 @@ use crate::game::{Direction, GameState, Pos};
 use crate::persistence::{
     archive_dir_display, artifacts_root_display, current_checkpoint_dir_display,
     current_checkpoint_info, current_policy_path_display, list_checkpoints, load_checkpoint_bundle,
-    load_current, load_replay, promote_checkpoint, save_current, CheckpointInfo,
+    list_registry, load_current, load_replay, promote_checkpoint, save_current, CheckpointInfo,
+    ModelRecord,
 };
 use crate::replay::{replay_frames, ReplayTrace};
 use crate::swarm::{run_swarm, PopulationCell, SwarmSnapshot, SwarmStats};
@@ -322,6 +323,7 @@ fn App() -> Element {
         .cloned()
         .or_else(|| checkpoints.first().cloned());
     let current_checkpoint = current_checkpoint_info();
+    let registry_entries = list_registry(10);
     let replay_session = loaded_replay();
     let replay_frame = replay_session
         .as_ref()
@@ -517,6 +519,7 @@ fn App() -> Element {
                     replay_frame,
                     replay_index: replay_index(),
                     replay_playing: replay_playing(),
+                    registry_entries,
                     lab_best_score,
                     artifacts_root,
                     current_dir,
@@ -918,7 +921,9 @@ fn CheckpointMetaCard(title: String, checkpoint: Option<CheckpointInfo>) -> Elem
             p { class: "path-item__label", "{title}" }
             if let Some(checkpoint) = checkpoint {
                 p { class: "checkpoint-meta__value", "Gen {checkpoint.generation} / Score {checkpoint.champion_score}" }
+                p { class: "checkpoint-meta__detail", "{checkpoint.model_id}" }
                 p { class: "checkpoint-meta__detail", "{checkpoint.arena_stage}" }
+                p { class: "checkpoint-meta__detail", "Status {checkpoint.registry_status}" }
                 p { class: "checkpoint-meta__detail", {format!("Fitness {:.2}", checkpoint.champion_fitness)} }
                 p { class: "checkpoint-meta__detail", "{checkpoint.saved_at}" }
                 p { class: "checkpoint-meta__path", "{absolute_path(&checkpoint.directory)}" }
@@ -958,6 +963,53 @@ fn CompareSummaryCard(report: CompareReport) -> Element {
 }
 
 #[component]
+fn RegistryTable(entries: Vec<ModelRecord>) -> Element {
+    rsx! {
+        div {
+            class: "subpanel",
+            h3 { "Model Registry" }
+            if entries.is_empty() {
+                div {
+                    class: "empty-state",
+                    "No registry entries yet."
+                }
+            } else {
+                div {
+                    class: "registry-table",
+                    div {
+                        class: "registry-row registry-row--head",
+                        span { "Model" }
+                        span { "Status" }
+                        span { "Lineage" }
+                    }
+                    for entry in entries {
+                        div {
+                            class: "registry-row",
+                            span {
+                                class: "registry-cell registry-cell--mono",
+                                "{entry.model_id}"
+                            }
+                            span {
+                                class: "registry-cell",
+                                "{entry.status}"
+                            }
+                            span {
+                                class: "registry-cell registry-cell--mono",
+                                {
+                                    entry.parent_model_id
+                                        .clone()
+                                        .unwrap_or_else(|| "root".to_string())
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
 fn ArchiveCheckpointEntry(
     checkpoint: CheckpointInfo,
     selected: bool,
@@ -977,6 +1029,7 @@ fn ArchiveCheckpointEntry(
                 span { "Gen {checkpoint.generation}" }
                 span { "Score {checkpoint.champion_score}" }
             }
+            p { class: "archive-entry__line", "{checkpoint.model_id}" }
             p { class: "archive-entry__line", "{checkpoint.arena_stage}" }
             p { class: "archive-entry__line", {format!("Fitness {:.2}", checkpoint.champion_fitness)} }
             p { class: "archive-entry__line", "{checkpoint.saved_at}" }
@@ -1172,6 +1225,7 @@ fn LabView(
     replay_frame: Option<GameState>,
     replay_index: usize,
     replay_playing: bool,
+    registry_entries: Vec<ModelRecord>,
     lab_best_score: u32,
     artifacts_root: String,
     current_dir: String,
@@ -1243,6 +1297,10 @@ fn LabView(
                     PathItem { label: "Current Dir".to_string(), value: current_dir }
                     PathItem { label: "Policy File".to_string(), value: policy_path }
                     PathItem { label: "Archive Dir".to_string(), value: archive_dir }
+                }
+
+                RegistryTable {
+                    entries: registry_entries,
                 }
             }
 
