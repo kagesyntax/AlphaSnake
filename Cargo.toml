@@ -5,7 +5,7 @@ authors = ["kagesyntax"]
 edition = "2021"
 
 [features]
-default = ["web"]
+default = ["desktop"]
 web = ["dioxus/web"]
 desktop = ["dioxus/desktop"]
 
