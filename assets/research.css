@@ -43,6 +43,7 @@ body {
     gap: 14px;
     padding: 14px;
     outline: none;
+    overflow-x: clip;
 }
 
 .panel {
@@ -166,6 +167,14 @@ body {
     gap: 8px;
 }
 
+.status-strip > *,
+.game-layout > *,
+.lab-layout > *,
+.versus-grid > *,
+.metric-row > * {
+    min-width: 0;
+}
+
 .status-chip,
 .telemetry-card,
 .path-item,
@@ -188,13 +197,13 @@ body {
 
 .game-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 340px;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 320px);
     gap: 14px;
 }
 
 .lab-layout {
     display: grid;
-    grid-template-columns: 280px minmax(0, 1fr) 360px;
+    grid-template-columns: minmax(220px, 260px) minmax(0, 1fr) minmax(280px, 320px);
     gap: 14px;
     align-items: start;
 }
@@ -223,6 +232,7 @@ body {
     border: 1px solid var(--line);
     padding: 12px;
     background: rgba(7, 10, 12, 0.92);
+    min-width: 0;
 }
 
 .arena-panel__meta,
@@ -256,10 +266,17 @@ body {
 
 .section-heading {
     margin-bottom: 12px;
+    min-width: 0;
 }
 
 .section-heading--spaced {
     margin-top: 18px;
+}
+
+.section-heading p,
+.app-header__copy,
+.app-header__eyebrow {
+    overflow-wrap: anywhere;
 }
 
 .metric-row {
@@ -274,6 +291,7 @@ body {
 
 .telemetry-card {
     min-height: 104px;
+    min-width: 0;
 }
 
 .telemetry-card__value {
@@ -386,6 +404,13 @@ body {
     overflow-wrap: anywhere;
 }
 
+.path-item__value,
+.footer-block__value,
+.subpanel__copy {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
 .footer-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -396,7 +421,7 @@ body {
 
 @media (max-width: 1400px) {
     .lab-layout {
-        grid-template-columns: 260px minmax(0, 1fr);
+        grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
     }
 
     .lab-layout > .lab-sidebar:last-child {
@@ -405,6 +430,20 @@ body {
 
     .sample-grid {
         grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 1280px) {
+    .game-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .lab-layout {
+        grid-template-columns: minmax(220px, 240px) minmax(0, 1fr);
+    }
+
+    .versus-grid {
+        grid-template-columns: 1fr;
     }
 }
 

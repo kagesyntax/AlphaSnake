@@ -64,6 +64,8 @@ fn App() -> Element {
         let mut rng = SmallRng::from_entropy();
         GameState::new(GRID_SIZE, &mut rng)
     });
+    let mut player_best_score = use_signal(|| 0_u32);
+    let mut ai_best_score = use_signal(|| 0_u32);
     let mut operator_log = use_signal(|| "Research console online".to_string());
     let mut refresh = use_signal(|| 0_u64);
     let mut swarm_started = use_signal(|| false);
@@ -110,12 +112,18 @@ fn App() -> Element {
                         let _ = game.step(human_dir(), rng);
                     });
                 });
+                player_best_score.with_mut(|best| {
+                    *best = (*best).max(human_game.read().score);
+                });
 
                 let current_brain = brain_for_game.read().unwrap().clone();
                 ai_game.with_mut(move |game| {
                     ai_rng.with_mut(|rng| {
                         advance_ai_game(game, rng, current_brain.as_ref());
                     });
+                });
+                ai_best_score.with_mut(|best| {
+                    *best = (*best).max(ai_game.read().score);
                 });
             }
         }
@@ -133,6 +141,11 @@ fn App() -> Element {
     let current_snapshot = shared_snapshot.read().unwrap().clone();
     let has_brain = shared_brain.read().unwrap().is_some();
     let checkpoints = list_checkpoints(12);
+    let lab_best_score = checkpoints
+        .iter()
+        .map(|checkpoint| checkpoint.champion_score)
+        .max()
+        .unwrap_or(current_stats.champion_score);
     let artifacts_root = absolute_path(&artifacts_root_display());
     let current_dir = absolute_path(&current_checkpoint_dir_display());
     let policy_path = absolute_path(&current_policy_path_display());
@@ -225,6 +238,8 @@ fn App() -> Element {
                     ai_game: ai_game(),
                     has_brain,
                     stats: current_stats.clone(),
+                    player_best_score: player_best_score(),
+                    ai_best_score: ai_best_score(),
                     current_dir: current_dir.clone(),
                     policy_path: policy_path.clone(),
                     archive_dir: archive_dir.clone(),
@@ -234,6 +249,9 @@ fn App() -> Element {
                             human_rng.with_mut(|rng| {
                                 *game = GameState::new(GRID_SIZE, rng);
                             });
+                        });
+                        player_best_score.with_mut(|best| {
+                            *best = (*best).max(human_game.read().score);
                         });
                         operator_log.set("Player board reset".to_string());
                     },
@@ -261,6 +279,7 @@ fn App() -> Element {
                     stats: current_stats.clone(),
                     snapshot: current_snapshot.clone(),
                     checkpoints: checkpoints.clone(),
+                    lab_best_score,
                     artifacts_root,
                     current_dir,
                     policy_path,
@@ -461,6 +480,8 @@ fn GameView(
     ai_game: GameState,
     has_brain: bool,
     stats: SwarmStats,
+    player_best_score: u32,
+    ai_best_score: u32,
     current_dir: String,
     policy_path: String,
     archive_dir: String,
@@ -495,6 +516,7 @@ fn GameView(
                             div {
                                 class: "arena-panel__stats",
                                 span { "Score {human_game.score}" }
+                                span { "Best {player_best_score}" }
                                 span { "Length {human_game.snake.len()}" }
                             }
                         }
@@ -521,6 +543,7 @@ fn GameView(
                             div {
                                 class: "arena-panel__stats",
                                 span { "Gen {stats.generation}" }
+                                span { "Best {ai_best_score}" }
                                 span { "Champ {stats.champion_score}" }
                             }
                         }
@@ -607,6 +630,7 @@ fn LabView(
     stats: SwarmStats,
     snapshot: SwarmSnapshot,
     checkpoints: Vec<CheckpointInfo>,
+    lab_best_score: u32,
     artifacts_root: String,
     current_dir: String,
     policy_path: String,
@@ -644,6 +668,11 @@ fn LabView(
                         label: "Alive Agents".to_string(),
                         value: stats.alive_agents.to_string(),
                         detail: "Agents still alive in latest snapshot".to_string(),
+                    }
+                    MetricCard {
+                        label: "Best Score".to_string(),
+                        value: lab_best_score.to_string(),
+                        detail: "Highest archived champion score".to_string(),
                     }
                     MetricCard {
                         label: "Total Steps".to_string(),
