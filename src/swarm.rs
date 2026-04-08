@@ -165,7 +165,8 @@ pub fn run_swarm(
             previous_best = 0.0;
             mutation_scale = INITIAL_MUTATION_SCALE;
             champion_view = None;
-            population = seed_population(None, mutation_scale, &mut rng);
+            let reseed_brain = shared_brain.read().unwrap().clone();
+            population = seed_population(reseed_brain.as_ref(), mutation_scale, &mut rng);
             last_reset_seen = reset_now;
             write_shared_stats(
                 &shared_stats,

@@ -12,6 +12,7 @@ const ARCHIVE_DIR: &str = "artifacts/checkpoints/archive";
 const POLICY_FILE: &str = "policy.bin";
 const STATS_FILE: &str = "stats.bin";
 const MANIFEST_FILE: &str = "manifest.json";
+const REPLAY_FILE: &str = "replay.json";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PersistentData {
@@ -52,10 +53,24 @@ pub struct CheckpointInfo {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct CheckpointBundle {
+    pub info: CheckpointInfo,
+    pub brain: Option<PolicyBrain>,
+    pub stats: SwarmStats,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct SaveReport {
     pub current_dir: String,
     pub policy_path: String,
     pub has_brain: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PromoteReport {
+    pub save: SaveReport,
+    pub data: PersistentData,
+    pub source: CheckpointInfo,
 }
 
 pub fn artifacts_root_display() -> String {
@@ -83,6 +98,9 @@ pub fn save_current(
 ) -> Result<SaveReport, Box<dyn std::error::Error>> {
     let current_dir = PathBuf::from(CURRENT_DIR);
     save_bundle(&current_dir, brain, stats, "manual-save")?;
+    if let Some(brain) = brain {
+        save_replay_bundle(&current_dir, &crate::replay::record_replay(brain))?;
+    }
 
     Ok(SaveReport {
         current_dir: current_dir.display().to_string(),
@@ -104,12 +122,14 @@ pub fn save_generation_checkpoint(
 
     let brain = Some(brain.clone());
     save_bundle(&checkpoint_dir, &brain, stats, "generation-checkpoint")?;
+    save_replay_bundle(&checkpoint_dir, &crate::replay::record_replay(brain.as_ref().unwrap()))?;
     save_bundle(
         &PathBuf::from(CURRENT_DIR),
         &brain,
         stats,
         "autosave-current",
     )?;
+    save_replay_bundle(&PathBuf::from(CURRENT_DIR), &crate::replay::record_replay(brain.as_ref().unwrap()))?;
 
     Ok(read_checkpoint(&checkpoint_dir).ok())
 }
@@ -122,6 +142,54 @@ pub fn load_current() -> PersistentData {
     let brain = read_bin::<PolicyBrain>(&PathBuf::from(CURRENT_DIR).join(POLICY_FILE));
 
     PersistentData { brain, stats }
+}
+
+pub fn current_checkpoint_info() -> Option<CheckpointInfo> {
+    read_checkpoint(Path::new(CURRENT_DIR)).ok()
+}
+
+pub fn load_checkpoint_bundle(directory: &str) -> Result<CheckpointBundle, Box<dyn std::error::Error>> {
+    let path = PathBuf::from(directory);
+    let info = read_checkpoint(&path)?;
+    let stats = read_bin::<SwarmStats>(&path.join(STATS_FILE))
+        .ok_or_else(|| format!("missing stats in {}", path.display()))?;
+    let brain = read_bin::<PolicyBrain>(&path.join(POLICY_FILE));
+
+    Ok(CheckpointBundle { info, brain, stats })
+}
+
+pub fn promote_checkpoint(directory: &str) -> Result<PromoteReport, Box<dyn std::error::Error>> {
+    let bundle = load_checkpoint_bundle(directory)?;
+    save_bundle(
+        &PathBuf::from(CURRENT_DIR),
+        &bundle.brain,
+        &bundle.stats,
+        "promoted-from-archive",
+    )?;
+    if let Some(brain) = &bundle.brain {
+        save_replay_bundle(&PathBuf::from(CURRENT_DIR), &crate::replay::record_replay(brain))?;
+    }
+
+    let save = SaveReport {
+        current_dir: PathBuf::from(CURRENT_DIR).display().to_string(),
+        policy_path: PathBuf::from(CURRENT_DIR).join(POLICY_FILE).display().to_string(),
+        has_brain: bundle.brain.is_some(),
+    };
+
+    Ok(PromoteReport {
+        save,
+        data: PersistentData {
+            brain: bundle.brain.clone(),
+            stats: bundle.stats.clone(),
+        },
+        source: bundle.info,
+    })
+}
+
+pub fn load_replay(
+    directory: &str,
+) -> Result<crate::replay::ReplayTrace, Box<dyn std::error::Error>> {
+    read_json(&PathBuf::from(directory).join(REPLAY_FILE))
 }
 
 pub fn list_checkpoints(limit: usize) -> Vec<CheckpointInfo> {
@@ -186,6 +254,16 @@ fn save_bundle(
     let manifest_bytes = serde_json::to_vec_pretty(&manifest)?;
     let mut manifest_file = File::create(dir.join(MANIFEST_FILE))?;
     manifest_file.write_all(&manifest_bytes)?;
+    Ok(())
+}
+
+fn save_replay_bundle(
+    dir: &Path,
+    replay: &crate::replay::ReplayTrace,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let bytes = serde_json::to_vec_pretty(replay)?;
+    let mut file = File::create(dir.join(REPLAY_FILE))?;
+    file.write_all(&bytes)?;
     Ok(())
 }
 

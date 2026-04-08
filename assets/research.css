@@ -404,11 +404,129 @@ body {
     overflow-wrap: anywhere;
 }
 
+.archive-entry--selected {
+    border-color: var(--accent);
+}
+
+.archive-entry__actions {
+    margin-top: 8px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.mini-button {
+    border: 1px solid var(--line-strong);
+    background: rgba(22, 27, 31, 0.95);
+    color: var(--text);
+    font: inherit;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 7px 10px;
+    cursor: pointer;
+}
+
+.mini-button:hover {
+    border-color: var(--accent);
+}
+
+.checkpoint-meta-grid,
+.compare-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.checkpoint-meta,
+.checkpoint-compare {
+    border: 1px solid var(--line);
+    background: rgba(10, 13, 15, 0.95);
+    padding: 10px;
+    min-width: 0;
+}
+
+.checkpoint-meta__value {
+    margin: 8px 0 6px;
+    color: var(--accent);
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.checkpoint-meta__detail,
+.checkpoint-meta__path {
+    margin: 0 0 6px;
+    color: var(--muted);
+    line-height: 1.55;
+}
+
+.checkpoint-meta__path {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
 .path-item__value,
 .footer-block__value,
 .subpanel__copy {
     overflow-wrap: anywhere;
     word-break: break-word;
+}
+
+.replay-controls {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.alert-feed {
+    display: grid;
+    gap: 8px;
+}
+
+.alert-card {
+    display: grid;
+    gap: 8px;
+    border: 1px solid var(--line);
+    background: rgba(11, 15, 17, 0.97);
+    padding: 10px;
+}
+
+.alert-card--info {
+    border-left: 3px solid #6b8c95;
+}
+
+.alert-card--success {
+    border-left: 3px solid var(--good);
+}
+
+.alert-card--warning {
+    border-left: 3px solid var(--warn);
+}
+
+.alert-card__top {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: baseline;
+}
+
+.alert-card__tag {
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 10px;
+    color: var(--muted);
+}
+
+.alert-card__headline {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text);
+}
+
+.alert-card__detail {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.55;
+    overflow-wrap: anywhere;
 }
 
 .footer-grid {
@@ -462,6 +580,11 @@ body {
 
     .sample-grid {
         grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .checkpoint-meta-grid,
+    .compare-grid {
+        grid-template-columns: 1fr;
     }
 }
 
