@@ -34,6 +34,21 @@ enum Screen {
     Lab,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum AlertLevel {
+    Info,
+    Success,
+    Warning,
+}
+
+#[derive(Clone, PartialEq)]
+struct LiveAlert {
+    id: u64,
+    level: AlertLevel,
+    headline: String,
+    detail: String,
+}
+
 #[component]
 fn App() -> Element {
     let persisted = use_memo(load_current);
@@ -67,6 +82,11 @@ fn App() -> Element {
     let mut player_best_score = use_signal(|| 0_u32);
     let mut ai_best_score = use_signal(|| 0_u32);
     let mut operator_log = use_signal(|| "Research console online".to_string());
+    let mut alerts = use_signal(Vec::<LiveAlert>::new);
+    let mut next_alert_id = use_signal(|| 1_u64);
+    let mut seen_generation = use_signal(|| initial_stats.generation);
+    let mut seen_champion_score = use_signal(|| initial_stats.champion_score);
+    let mut seen_checkpoints = use_signal(|| initial_stats.checkpoints_saved);
     let mut refresh = use_signal(|| 0_u64);
     let mut swarm_started = use_signal(|| false);
 
@@ -133,6 +153,56 @@ fn App() -> Element {
         loop {
             Delay::new(Duration::from_millis(250)).await;
             refresh.with_mut(|tick| *tick += 1);
+        }
+    });
+
+    let shared_stats_for_alerts = shared_stats.clone();
+    use_effect(move || {
+        let _ = refresh();
+        let stats = shared_stats_for_alerts.read().unwrap().clone();
+
+        if stats.generation > seen_generation() {
+            push_alert(
+                &mut alerts,
+                &mut next_alert_id,
+                AlertLevel::Info,
+                format!("Generation {}", stats.generation),
+                format!(
+                    "Swarm advanced with champion score {} and mean fitness {:.2}.",
+                    stats.champion_score, stats.mean_fitness
+                ),
+            );
+            seen_generation.set(stats.generation);
+        }
+
+        if stats.champion_score > seen_champion_score() {
+            push_alert(
+                &mut alerts,
+                &mut next_alert_id,
+                AlertLevel::Success,
+                "New champion score".to_string(),
+                format!(
+                    "Champion score improved from {} to {}.",
+                    seen_champion_score(),
+                    stats.champion_score
+                ),
+            );
+            seen_champion_score.set(stats.champion_score);
+        }
+
+        if stats.checkpoints_saved > seen_checkpoints() {
+            push_alert(
+                &mut alerts,
+                &mut next_alert_id,
+                AlertLevel::Info,
+                "Checkpoint archived".to_string(),
+                format!(
+                    "Trainer archived checkpoint {} at generation {}.",
+                    stats.checkpoints_saved,
+                    stats.generation
+                ),
+            );
+            seen_checkpoints.set(stats.checkpoints_saved);
         }
     });
 
@@ -243,6 +313,7 @@ fn App() -> Element {
                     policy_path: policy_path.clone(),
                     archive_dir: archive_dir.clone(),
                     operator_log: operator_log(),
+                    alerts: alerts(),
                     on_reset_player: move |_| {
                         human_game.with_mut(|game| {
                             human_rng.with_mut(|rng| {
@@ -253,6 +324,13 @@ fn App() -> Element {
                             *best = (*best).max(human_game.read().score);
                         });
                         operator_log.set("Player board reset".to_string());
+                        push_alert(
+                            &mut alerts,
+                            &mut next_alert_id,
+                            AlertLevel::Info,
+                            "Player board reset".to_string(),
+                            "Manual board state reinitialized.".to_string(),
+                        );
                     },
                     on_save: move |_| {
                         let brain = shared_brain.read().unwrap().clone();
@@ -261,16 +339,46 @@ fn App() -> Element {
                             Ok(report) => {
                                 if report.has_brain {
                                     operator_log.set(format!("Saved active policy to {}", absolute_path(&report.policy_path)));
+                                    push_alert(
+                                        &mut alerts,
+                                        &mut next_alert_id,
+                                        AlertLevel::Success,
+                                        "Checkpoint saved".to_string(),
+                                        format!("Active policy saved to {}.", absolute_path(&report.policy_path)),
+                                    );
                                 } else {
                                     operator_log.set(format!("Saved stats only to {}", absolute_path(&report.current_dir)));
+                                    push_alert(
+                                        &mut alerts,
+                                        &mut next_alert_id,
+                                        AlertLevel::Info,
+                                        "Stats snapshot saved".to_string(),
+                                        format!("Saved stats to {}.", absolute_path(&report.current_dir)),
+                                    );
                                 }
                             }
-                            Err(error) => operator_log.set(format!("Save failed: {error}")),
+                            Err(error) => {
+                                operator_log.set(format!("Save failed: {error}"));
+                                push_alert(
+                                    &mut alerts,
+                                    &mut next_alert_id,
+                                    AlertLevel::Warning,
+                                    "Checkpoint save failed".to_string(),
+                                    error.to_string(),
+                                );
+                            }
                         }
                     },
                     on_reset_trainer: move |_| {
                         shared_reset_for_button.fetch_add(1, Ordering::Relaxed);
                         operator_log.set("Trainer reset requested".to_string());
+                        push_alert(
+                            &mut alerts,
+                            &mut next_alert_id,
+                            AlertLevel::Warning,
+                            "Trainer reset requested".to_string(),
+                            "Swarm state will be reseeded from scratch.".to_string(),
+                        );
                     },
                 }
             } else {
@@ -283,6 +391,7 @@ fn App() -> Element {
                     current_dir,
                     policy_path,
                     archive_dir,
+                    alerts: alerts(),
                 }
             }
 
@@ -422,6 +531,45 @@ fn segment_style(segment: &Pos, cell_size: i32, color: &str, opacity: f32) -> St
     )
 }
 
+fn push_alert(
+    alerts: &mut Signal<Vec<LiveAlert>>,
+    next_alert_id: &mut Signal<u64>,
+    level: AlertLevel,
+    headline: String,
+    detail: String,
+) {
+    let id = next_alert_id();
+    next_alert_id.set(id + 1);
+    alerts.with_mut(|items| {
+        items.insert(
+            0,
+            LiveAlert {
+                id,
+                level,
+                headline,
+                detail,
+            },
+        );
+        items.truncate(8);
+    });
+}
+
+fn alert_level_label(level: AlertLevel) -> &'static str {
+    match level {
+        AlertLevel::Info => "Info",
+        AlertLevel::Success => "Success",
+        AlertLevel::Warning => "Warning",
+    }
+}
+
+fn alert_level_class(level: AlertLevel) -> &'static str {
+    match level {
+        AlertLevel::Info => "alert-card alert-card--info",
+        AlertLevel::Success => "alert-card alert-card--success",
+        AlertLevel::Warning => "alert-card alert-card--warning",
+    }
+}
+
 #[component]
 fn NavButton(label: String, active: bool, onclick: EventHandler<MouseEvent>) -> Element {
     let class = if active {
@@ -485,6 +633,7 @@ fn GameView(
     policy_path: String,
     archive_dir: String,
     operator_log: String,
+    alerts: Vec<LiveAlert>,
     on_reset_player: EventHandler<MouseEvent>,
     on_save: EventHandler<MouseEvent>,
     on_reset_trainer: EventHandler<MouseEvent>,
@@ -619,6 +768,11 @@ fn GameView(
                     h3 { "Session" }
                     p { class: "subpanel__copy", "{operator_log}" }
                 }
+
+                AlertFeed {
+                    title: "Live Alerts".to_string(),
+                    alerts,
+                }
             }
         }
     }
@@ -634,6 +788,7 @@ fn LabView(
     current_dir: String,
     policy_path: String,
     archive_dir: String,
+    alerts: Vec<LiveAlert>,
 ) -> Element {
     let max_heat = snapshot.head_heatmap.iter().copied().max().unwrap_or(0);
     let matrix_columns = crate::swarm::POPULATION_MATRIX_COLUMNS;
@@ -807,6 +962,43 @@ fn LabView(
                                 p { class: "archive-entry__line", "{checkpoint.saved_at}" }
                                 p { class: "archive-entry__path", "{absolute_path(&checkpoint.directory)}" }
                             }
+                        }
+                    }
+                }
+
+                AlertFeed {
+                    title: "Live Alerts".to_string(),
+                    alerts,
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn AlertFeed(title: String, alerts: Vec<LiveAlert>) -> Element {
+    rsx! {
+        div {
+            class: "subpanel",
+            h3 { "{title}" }
+            if alerts.is_empty() {
+                div {
+                    class: "empty-state",
+                    "No alerts yet."
+                }
+            } else {
+                div {
+                    class: "alert-feed",
+                    for alert in alerts {
+                        div {
+                            key: "{alert.id}",
+                            class: "{alert_level_class(alert.level)}",
+                            div {
+                                class: "alert-card__top",
+                                span { class: "alert-card__tag", "{alert_level_label(alert.level)}" }
+                                span { class: "alert-card__headline", "{alert.headline}" }
+                            }
+                            p { class: "alert-card__detail", "{alert.detail}" }
                         }
                     }
                 }
