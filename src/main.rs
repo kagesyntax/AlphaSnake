@@ -11,6 +11,7 @@ use crate::persistence::{
 };
 use crate::swarm::{run_swarm, PopulationCell, SwarmSnapshot, SwarmStats};
 use dioxus::prelude::*;
+use futures_timer::Delay;
 use rand::rngs::SmallRng;
 use rand::SeedableRng;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -22,7 +23,6 @@ const PLAYER_CELL_SIZE: i32 = 20;
 const OPPONENT_CELL_SIZE: i32 = 18;
 const CHAMPION_CELL_SIZE: i32 = 12;
 const SAMPLE_CELL_SIZE: i32 = 6;
-const RESEARCH_CSS: Asset = asset!("/assets/research.css");
 
 fn main() {
     dioxus::launch(App);
@@ -102,7 +102,7 @@ fn App() -> Element {
         let brain_for_game = brain_for_game.clone();
         async move {
             loop {
-                tokio::time::sleep(Duration::from_millis(120)).await;
+                Delay::new(Duration::from_millis(120)).await;
 
                 human_game.with_mut(|game| {
                     if game.is_dead {
@@ -131,7 +131,7 @@ fn App() -> Element {
 
     use_future(move || async move {
         loop {
-            tokio::time::sleep(Duration::from_millis(250)).await;
+            Delay::new(Duration::from_millis(250)).await;
             refresh.with_mut(|tick| *tick += 1);
         }
     });
@@ -152,9 +152,6 @@ fn App() -> Element {
     let archive_dir = absolute_path(&archive_dir_display());
 
     rsx! {
-        document::Stylesheet { href: RESEARCH_CSS }
-        document::Title { "Snake Systems Lab" }
-
         div {
             class: "console-shell",
             tabindex: "0",
@@ -195,6 +192,8 @@ fn App() -> Element {
                     _ => {}
                 }
             },
+
+            style { {include_str!("../assets/research.css")} }
 
             header {
                 class: "panel app-header",
