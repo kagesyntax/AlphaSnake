@@ -52,10 +52,24 @@ pub struct CheckpointInfo {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct CheckpointBundle {
+    pub info: CheckpointInfo,
+    pub brain: Option<PolicyBrain>,
+    pub stats: SwarmStats,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct SaveReport {
     pub current_dir: String,
     pub policy_path: String,
     pub has_brain: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PromoteReport {
+    pub save: SaveReport,
+    pub data: PersistentData,
+    pub source: CheckpointInfo,
 }
 
 pub fn artifacts_root_display() -> String {
@@ -122,6 +136,45 @@ pub fn load_current() -> PersistentData {
     let brain = read_bin::<PolicyBrain>(&PathBuf::from(CURRENT_DIR).join(POLICY_FILE));
 
     PersistentData { brain, stats }
+}
+
+pub fn current_checkpoint_info() -> Option<CheckpointInfo> {
+    read_checkpoint(Path::new(CURRENT_DIR)).ok()
+}
+
+pub fn load_checkpoint_bundle(directory: &str) -> Result<CheckpointBundle, Box<dyn std::error::Error>> {
+    let path = PathBuf::from(directory);
+    let info = read_checkpoint(&path)?;
+    let stats = read_bin::<SwarmStats>(&path.join(STATS_FILE))
+        .ok_or_else(|| format!("missing stats in {}", path.display()))?;
+    let brain = read_bin::<PolicyBrain>(&path.join(POLICY_FILE));
+
+    Ok(CheckpointBundle { info, brain, stats })
+}
+
+pub fn promote_checkpoint(directory: &str) -> Result<PromoteReport, Box<dyn std::error::Error>> {
+    let bundle = load_checkpoint_bundle(directory)?;
+    save_bundle(
+        &PathBuf::from(CURRENT_DIR),
+        &bundle.brain,
+        &bundle.stats,
+        "promoted-from-archive",
+    )?;
+
+    let save = SaveReport {
+        current_dir: PathBuf::from(CURRENT_DIR).display().to_string(),
+        policy_path: PathBuf::from(CURRENT_DIR).join(POLICY_FILE).display().to_string(),
+        has_brain: bundle.brain.is_some(),
+    };
+
+    Ok(PromoteReport {
+        save,
+        data: PersistentData {
+            brain: bundle.brain.clone(),
+            stats: bundle.stats.clone(),
+        },
+        source: bundle.info,
+    })
 }
 
 pub fn list_checkpoints(limit: usize) -> Vec<CheckpointInfo> {
