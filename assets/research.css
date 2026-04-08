@@ -163,7 +163,7 @@ body {
 .status-strip {
     margin-top: 14px;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 8px;
 }
 
@@ -362,9 +362,17 @@ body {
 }
 
 .board-food,
+.board-obstacle,
 .board-segment,
 .board-overlay {
     position: absolute;
+}
+
+.board-obstacle {
+    background: rgba(104, 86, 66, 0.78);
+    box-shadow:
+        inset 0 0 0 1px rgba(0, 0, 0, 0.22),
+        inset 0 0 0 2px rgba(255, 255, 255, 0.04);
 }
 
 .board-segment {

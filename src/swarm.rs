@@ -1,5 +1,5 @@
 use crate::ai::PolicyBrain;
-use crate::game::{GameState, StepOutcome};
+use crate::game::{ArenaConfig, GameState, StepOutcome};
 use crate::persistence::save_generation_checkpoint;
 use rand::rngs::SmallRng;
 use rand::SeedableRng;
@@ -19,12 +19,15 @@ const MAX_TICKS_PER_GENERATION: u32 = 260;
 const SNAPSHOT_INTERVAL: u32 = 4;
 const SIMULATION_SLEEP_MS: u64 = 18;
 const INITIAL_MUTATION_SCALE: f32 = 0.18;
+const CURRICULUM_STAGE_THRESHOLDS: [u32; 3] = [0, 80, 120];
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SwarmStats {
     pub generation: u32,
     pub population_size: u32,
     pub alive_agents: u32,
+    #[serde(default = "default_arena_stage")]
+    pub arena_stage: String,
     pub champion_score: u32,
     pub champion_foods: u32,
     pub champion_fitness: f32,
@@ -43,6 +46,7 @@ impl Default for SwarmStats {
             generation: 0,
             population_size: POPULATION_SIZE as u32,
             alive_agents: POPULATION_SIZE as u32,
+            arena_stage: default_arena_stage(),
             champion_score: 0,
             champion_foods: 0,
             champion_fitness: 0.0,
@@ -118,12 +122,16 @@ struct Candidate {
     fitness: f32,
 }
 
+fn default_arena_stage() -> String {
+    "Standard Arena".to_string()
+}
+
 impl Candidate {
-    fn new(id: usize, brain: PolicyBrain, rng: &mut SmallRng) -> Self {
+    fn new(id: usize, brain: PolicyBrain, arena: &ArenaConfig, rng: &mut SmallRng) -> Self {
         Self {
             id,
             brain,
-            state: GameState::new(GRID_SIZE, rng),
+            state: GameState::new_with_arena(arena.clone(), rng),
             fitness: 0.0,
         }
     }
@@ -152,7 +160,9 @@ pub fn run_swarm(
     let mut checkpoints_saved = shared_stats.read().unwrap().checkpoints_saved;
     let mut last_reset_seen = reset_signal.load(Ordering::Relaxed);
     let mut previous_best = shared_stats.read().unwrap().champion_fitness;
-    let mut population = seed_population(seed_brain.as_ref(), mutation_scale, &mut rng);
+    let mut stage_index = arena_stage_index(&shared_stats.read().unwrap().arena_stage);
+    let mut arena = ArenaConfig::curriculum_stage(stage_index, GRID_SIZE);
+    let mut population = seed_population(seed_brain.as_ref(), &arena, mutation_scale, &mut rng);
     let mut champion_view = None;
 
     loop {
@@ -165,19 +175,25 @@ pub fn run_swarm(
             previous_best = 0.0;
             mutation_scale = INITIAL_MUTATION_SCALE;
             champion_view = None;
+            stage_index = 0;
+            arena = ArenaConfig::curriculum_stage(stage_index, GRID_SIZE);
             let reseed_brain = shared_brain.read().unwrap().clone();
-            population = seed_population(reseed_brain.as_ref(), mutation_scale, &mut rng);
+            population = seed_population(reseed_brain.as_ref(), &arena, mutation_scale, &mut rng);
             last_reset_seen = reset_now;
             write_shared_stats(
                 &shared_stats,
                 SwarmStats {
+                    arena_stage: arena.stage_label().to_string(),
                     mutation_scale,
                     ..SwarmStats::default()
                 },
             );
             write_shared_snapshot(
                 &shared_snapshot,
-                SwarmSnapshot::empty(SwarmStats::default()),
+                SwarmSnapshot::empty(SwarmStats {
+                    arena_stage: arena.stage_label().to_string(),
+                    ..SwarmStats::default()
+                }),
             );
         }
 
@@ -216,6 +232,7 @@ pub fn run_swarm(
                 let snapshot = snapshot_from_population(
                     &population,
                     alive_agents,
+                    arena.stage_label(),
                     mutation_scale,
                     generation,
                     total_steps - generation_step_start,
@@ -263,10 +280,18 @@ pub fn run_swarm(
             fitness: champion.fitness,
         });
 
+        if stage_index + 1 < CURRICULUM_STAGE_THRESHOLDS.len()
+            && champion.state.score >= CURRICULUM_STAGE_THRESHOLDS[stage_index + 1]
+        {
+            stage_index += 1;
+            arena = ArenaConfig::curriculum_stage(stage_index, GRID_SIZE);
+        }
+
         let mut stats = SwarmStats {
             generation,
             population_size: POPULATION_SIZE as u32,
             alive_agents: 0,
+            arena_stage: arena.stage_label().to_string(),
             champion_score: champion.state.score,
             champion_foods: champion.state.foods_eaten,
             champion_fitness: champion.fitness,
@@ -295,12 +320,17 @@ pub fn run_swarm(
         write_shared_stats(&shared_stats, stats.clone());
         write_shared_snapshot(&shared_snapshot, final_snapshot);
 
-        population = reseed_population_from_champion(&champion.brain, mutation_scale, &mut rng);
+        population = reseed_population_from_champion(&champion.brain, &arena, mutation_scale, &mut rng);
     }
 }
 
 
-fn seed_population(seed: Option<&PolicyBrain>, sigma: f32, rng: &mut SmallRng) -> Vec<Candidate> {
+fn seed_population(
+    seed: Option<&PolicyBrain>,
+    arena: &ArenaConfig,
+    sigma: f32,
+    rng: &mut SmallRng,
+) -> Vec<Candidate> {
     (0..POPULATION_SIZE)
         .map(|id| {
             let brain = match seed {
@@ -311,20 +341,21 @@ fn seed_population(seed: Option<&PolicyBrain>, sigma: f32, rng: &mut SmallRng) -
                 }
                 _ => PolicyBrain::random(rng),
             };
-            Candidate::new(id, brain, rng)
+            Candidate::new(id, brain, arena, rng)
         })
         .collect()
 }
 
 fn reseed_population_from_champion(
     champion: &PolicyBrain,
+    arena: &ArenaConfig,
     sigma: f32,
     rng: &mut SmallRng,
 ) -> Vec<Candidate> {
     // The next generation is rebuilt around the strongest live policy instead
     // of mixing survivors from the old pool. This keeps the whole lab focused
     // on the latest best model and clears weaker branches immediately.
-    seed_population(Some(champion), sigma, rng)
+    seed_population(Some(champion), arena, sigma, rng)
 }
 
 fn shaped_reward(state: &GameState, outcome: StepOutcome) -> f32 {
@@ -346,6 +377,7 @@ fn shaped_reward(state: &GameState, outcome: StepOutcome) -> f32 {
 fn snapshot_from_population(
     population: &[Candidate],
     alive_agents: usize,
+    arena_stage: &str,
     mutation_scale: f32,
     generation: u32,
     generation_steps: u64,
@@ -394,6 +426,7 @@ fn snapshot_from_population(
             generation,
             population_size: POPULATION_SIZE as u32,
             alive_agents: alive_agents as u32,
+            arena_stage: arena_stage.to_string(),
             champion_score,
             champion_foods,
             champion_fitness: sorted_fitness[0],
@@ -441,6 +474,14 @@ fn snapshot_after_generation(
         sample_agents: sample_agents(population),
         head_heatmap: heatmap,
         champion,
+    }
+}
+
+fn arena_stage_index(label: &str) -> usize {
+    match label {
+        "Sparse Food Arena" => 1,
+        "Obstacle Field" => 2,
+        _ => 0,
     }
 }
 
