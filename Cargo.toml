@@ -1,5 +1,5 @@
 [package]
-name = "eternal-snake-arena"
+name = "alphasnake"
 version = "0.1.0"
 authors = ["kagesyntax"]
 edition = "2021"

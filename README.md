@@ -1,52 +1,60 @@
-# Development
+# AlphaSnake
 
-Your new bare-bones project includes minimal organization with a single `main.rs` file and a few assets.
+AlphaSnake is a highly performant, AI-driven Snake simulation and training environment built with Rust and Dioxus. It features a persistent neural "brain," real-time swarm-based population evolution, and a comprehensive benchmarking suite.
 
-```
-project/
-├─ assets/ # Any assets that are used by the app should be placed here
-├─ src/
-│  ├─ main.rs # main.rs is the entry point to your application and currently contains all components for the app
-├─ Cargo.toml # The Cargo.toml file defines the dependencies and feature flags for your project
-```
+## 🚀 Features
 
-### Automatic Tailwind (Dioxus 0.7+)
+- **AI-Powered Gameplay:** Controlled by a neural "PolicyBrain" that learns and adapts over time.
+- **Swarm Training:** Implements a population-based training system ("Swarm") to evolve smarter snake behaviors through parallel simulations.
+- **Persistent State:** Saves game statistics and neural network weights to binary files (`snake_brain.bin`, `snake_stats.bin`) for continuous learning.
+- **Interactive Lab:** A built-in dashboard for monitoring population fitness, replaying game traces, and managing model checkpoints.
+- **Benchmarking CLI:** Compare different versions of the AI brain directly from the terminal.
+- **Cross-Platform:** Runs seamlessly on Web (WASM) and Desktop (native).
+- **Modern UI:** Styled with Tailwind CSS for a sleek, responsive interface.
 
-As of Dioxus 0.7, there no longer is a need to manually install tailwind. Simply `dx serve` and you're good to go!
+## 🏗️ Architecture
 
-Automatic tailwind is supported by checking for a file called `tailwind.css` in your app's manifest directory (next to Cargo.toml). To customize the file, use the dioxus.toml:
+- **`src/ai.rs`**: Neural network logic and move prediction.
+- **`src/game.rs`**: Core Snake game engine and rules.
+- **`src/swarm.rs`**: Population management and parallel training orchestration.
+- **`src/persistence.rs`**: Logic for saving/loading models and checkpoints.
+- **`src/evals.rs`**: Tools for evaluating and comparing AI performance.
+- **`src/main.rs`**: Dioxus application entry point and UI routing.
 
-```toml
-[application]
-tailwind_input = "my.css"
-tailwind_output = "assets/out.css" # also customize the location of the out file!
-```
+## 🛠️ Getting Started
 
-### Tailwind Manual Install
+### Prerequisites
 
-To use tailwind plugins or manually customize tailwind, you can can install the Tailwind CLI and use it directly.
+- **Rust:** Install via [rustup.rs](https://rustup.rs).
+- **Dioxus CLI:** `cargo install dioxus-cli`.
 
-### Tailwind
-1. Install npm: https://docs.npmjs.com/downloading-and-installing-node-js-and-npm
-2. Install the Tailwind CSS CLI: https://tailwindcss.com/docs/installation/tailwind-cli
-3. Run the following command in the root of the project to start the Tailwind CSS compiler:
+### Running the App
 
+Start the simulation in your browser:
 ```bash
-npx @tailwindcss/cli -i ./input.css -o ./assets/tailwind.css --watch
+dx serve --platform web
 ```
 
-### Serving Your App
-
-Run the following command in the root of your project to start developing with the default platform:
-
-```bash
-dx serve
-```
-
-This project is configured for desktop development by default.
-
-To run explicitly for desktop, use:
-
+Start the native desktop version:
 ```bash
 dx serve --platform desktop
 ```
+
+### Benchmarking
+
+Compare the current brain against a specific checkpoint:
+```bash
+cargo run -- benchmark current artifacts/checkpoints/current
+```
+
+## 🧪 Documentation
+
+Detailed technical guides can be found in the `docs/` directory:
+- [Checkpoint Manager](docs/checkpoint-manager.md)
+- [Model Registry](docs/model-registry.md)
+- [Curriculum Arenas](docs/curriculum-arenas.md)
+- [Replay and Evaluations](docs/replay-and-evals.md)
+
+## 📜 License
+
+This project is licensed under the MIT License.
